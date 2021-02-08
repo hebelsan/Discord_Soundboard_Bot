@@ -7,6 +7,7 @@ import asyncio
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
+CHANNEL_ID = os.getenv('DISCORD_CHANNEL_ID')
 
 
 class MyClient(discord.Client):
@@ -29,7 +30,7 @@ class MyClient(discord.Client):
             #await channel.send(counter)
             #await asyncio.sleep(60) # task runs every 60 seconds
             print("test1")
-            channel = self.get_channel(784477357767524363)
+            channel = self.get_channel(CHANNEL_ID)
             voice_channel = await channel.connect()
             print("test2")
             voice_channel.play(discord.FFmpegPCMAudio(executable='ffmpeg.exe', source='sounds/idautit.mp3'))
