@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import asyncio
 import threading
 import os.path
+import keyboard
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -19,10 +20,25 @@ BINDINGS = {
 }
 
 selected_sound = None
+key_pressed = None
 
 
 def gui():
     global selected_sound
+    global key_pressed
+    binding_items = []
+
+    def set_key_pressed(key):
+        global key_pressed
+        key_pressed = key
+    
+    def set_playing_hook(key):
+        global BINDINGS
+        global selected_sound
+        for key_name, filename in BINDINGS.items():
+            if key_name == key.name:
+                selected_sound = filename
+
     sg.theme('DarkAmber')   # Add a touch of color
 
     file_list_column = [
@@ -33,15 +49,19 @@ def gui():
         ],
         [
             sg.Listbox(
-                values=[], enable_events=True, size=(40, 20), key="-FILE LIST-"
+                values=[], enable_events=True, size=(45, 20), key="-FILE LIST-"
             )
         ],
     ]
 
     # For now will only show the name of the file that was chosen
     bindings_column = [
-        [sg.Text("Choose an sound file from list on left:")],
-        [sg.Text(size=(40, 1), key="-TOUT-")]
+        [sg.Text("List of bindings")],
+        [
+        sg.Listbox(
+                values=[], enable_events=True, size=(45, 20), key="-BINDINGS-"
+            )
+        ]
     ]
 
     # ----- Full layout -----
@@ -58,6 +78,7 @@ def gui():
     while True:
         event, values = window.read()
         if event == "Exit" or event == sg.WIN_CLOSED:
+            keyboard.unhook_all()
             break
 
         # Folder name was filled in, make a list of files in the folder
@@ -82,31 +103,18 @@ def gui():
                 filename = os.path.join(
                     values["-FOLDER-"], values["-FILE LIST-"][0]
                 )
-                window["-TOUT-"].update(filename)
-                selected_sound = filename
+                hook = keyboard.on_press(set_key_pressed)
+                sg.Popup("Press any key to bind", title="test title", any_key_closes=True, button_type=5)
+                keyboard.unhook(hook)
+                binding_items.append(values["-FILE LIST-"][0] + " - " + "KEY:" + key_pressed.name)
+                window["-BINDINGS-"].update(binding_items)
+                BINDINGS[key_pressed.name] = filename
+                keyboard.hook_key(key_pressed.name, set_playing_hook)
+                key_pressed = None
             except:
                 pass
     
     window.close()
-
-    '''
-    sg.theme('DarkAmber')   # Add a touch of color
-    # All the stuff inside your window.
-    layout = [  [sg.Text('Some text on Row 1')],
-                [sg.Text('Enter something on Row 2'), sg.InputText()],
-                [sg.Button('Ok'), sg.Button('Cancel')] ]
-
-    # Create the Window
-    window = sg.Window('Window Title', layout)
-    # Event Loop to process "events" and get the "values" of the inputs
-    while True:
-        event, values = window.read()
-        if event == sg.WIN_CLOSED or event == 'Cancel': # if user closes window or clicks cancel
-            break
-        print('You entered ', values[0])
-
-    window.close()
-    '''
 
 
 class MyClient(discord.Client):
@@ -125,17 +133,16 @@ class MyClient(discord.Client):
     async def my_background_task(self):
         global selected_sound
         await self.wait_until_ready()
-        print("test1")
         channel = self.get_channel(int(CHANNEL_ID))
         voice_channel = await channel.connect()
         while not self.is_closed():
-            print("test2")
+            await asyncio.sleep(0.1)
             if selected_sound:
-                voice_channel.play(discord.FFmpegPCMAudio(executable='ffmpeg.exe', source=selected_sound), after=lambda e: print('done', e))
+                voice_channel.play(discord.FFmpegPCMAudio(executable='ffmpeg.exe', source=selected_sound))
                 while voice_channel.is_playing():
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.15)
                 selected_sound = None
-                await asyncio.sleep(0.05)
+                #await asyncio.sleep(0.05)
 
 x = threading.Thread(target=gui)
 x.start()
